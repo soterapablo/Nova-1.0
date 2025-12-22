@@ -1,0 +1,77 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NOVA v1.0 - Observatorio Oro Verde</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: 79, 70, 229; /* Indigo 600 */
+            --bg-base: 11, 14, 23;
+        }
+        
+        body.red-mode {
+            filter: sepia(1) hue-rotate(-50deg) saturate(3) brightness(0.6);
+            background-color: #1a0000 !important;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: rgb(var(--bg-base));
+            color: #E2E8F0;
+            overflow-x: hidden;
+            transition: filter 0.5s ease;
+        }
+        
+        .stars {
+            background-image: radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 3px),
+            radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px),
+            radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 3px);
+            background-size: 550px 550px, 350px 350px, 250px 250px;
+            background-position: 0 0, 40px 60px, 130px 270px;
+            background-attachment: fixed;
+        }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        @media print {
+            .no-print, nav, aside, button { display: none !important; }
+            .print-only { display: block !important; }
+            body, .stars { background: white !important; color: black !important; filter: none !important; }
+            .bg-slate-900\/50, .bg-slate-800\/40, .bg-slate-800\/20 { 
+                background: white !important; 
+                border: 1px solid #ddd !important;
+                color: black !important;
+                box-shadow: none !important;
+            }
+            .text-white, .text-slate-400, .text-indigo-400 { color: black !important; }
+            main { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
+            tr { border-bottom: 1px solid #eee !important; }
+        }
+        .print-only { display: none; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.460.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+  }
+}
+</script>
+</head>
+<body class="stars min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+</body>
+</html>

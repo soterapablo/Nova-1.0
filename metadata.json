@@ -1,0 +1,7 @@
+{
+  "name": "Observatorio Oro Verde",
+  "description": "Sistema de gestión de asistencia, solicitudes e incidentes para el Observatorio Astronómico de Oro Verde.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
