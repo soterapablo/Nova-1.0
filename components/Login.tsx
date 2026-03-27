@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
-import { ArrowRight, ShieldAlert, LogIn, UserPlus, Eye, EyeOff, Lock, Sparkles, ShieldCheck, User as UserIcon, AlertCircle, Mail } from 'lucide-react';
+import { ArrowRight, ShieldAlert, LogIn, UserPlus, Eye, EyeOff, Lock, Sparkles, ShieldCheck, User as UserIcon, AlertCircle, Mail, Loader2 } from 'lucide-react';
+import { authService } from '../services/authService';
 
 interface LoginProps {
   onLogin: (user: User, isDemo?: boolean) => void;
@@ -10,37 +10,14 @@ interface LoginProps {
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) => {
-  const [step, setStep] = useState<'INIT' | 'GOOGLE_EMAIL' | 'PASSWORD' | 'REGISTER'>('INIT');
+  const [step, setStep] = useState<'INIT' | 'EMAIL' | 'PASSWORD' | 'REGISTER'>('INIT');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [dni, setDni] = useState('');
   const [role, setRole] = useState<UserRole>('STAFF');
   const [error, setError] = useState('');
-  const [pendingUser, setPendingUser] = useState<User | null>(null);
-
-  const handleStartLogin = () => {
-    setStep('GOOGLE_EMAIL');
-    setError('');
-  };
-
-  const handleGmailLogin = () => {
-    // Simulación de Google Auth
-    const mockGmail = "usuario.nuevo@gmail.com";
-    setEmail(mockGmail);
-    const existingUser = usersDb.find(u => u.email.toLowerCase() === mockGmail.toLowerCase());
-    
-    if (existingUser) {
-        if (existingUser.status === 'REJECTED') {
-            setError("Acceso denegado.");
-            return;
-        }
-        onLogin(existingUser, false);
-    } else {
-        // Si no existe, forzamos registro para pedir DNI
-        setStep('REGISTER');
-    }
-  };
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleDemoLogin = (type: 'ADMIN' | 'STAFF') => {
     const demoUser: User = {
@@ -55,49 +32,42 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
     onLogin(demoUser, true);
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const existingUser = usersDb.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (existingUser) {
-        if (existingUser.status === 'REJECTED') {
-            setError("Acceso denegado.");
+    setIsLoading(true);
+    setError('');
+    const { user, error: loginError } = await authService.login(email, password);
+    setIsLoading(false);
+
+    if (loginError) {
+        setError(loginError);
+    } else if (user) {
+        if (user.status === 'REJECTED') {
+            setError("Tu perfil ha sido rechazado o bloqueado.");
             return;
         }
-        setPendingUser(existingUser);
-        setStep('PASSWORD');
-        setError('');
-    } else {
-        setStep('REGISTER');
-        setError('');
+        onLogin(user, false);
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pendingUser) return;
-    const validPassword = pendingUser.password || pendingUser.dni;
-    if (password === validPassword) {
-        onLogin(pendingUser, false);
-    } else {
-        setError("Contraseña incorrecta.");
-    }
-  };
-
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dni.trim()) { setError("El DNI es obligatorio."); return; }
     
-    const newUser: User = {
-        id: crypto.randomUUID(),
-        name: email.split('@')[0].toUpperCase(),
-        email: email,
-        dni: dni,
-        password: dni, // Password inicial es el DNI
-        role: role,
-        status: 'PENDING',
-        photoUrl: `https://ui-avatars.com/api/?name=${email.split('@')[0]}&background=4F46E5&color=fff`
-    };
-    onRegister(newUser);
+    setIsLoading(true);
+    setError('');
+    const { user, error: registerError } = await authService.register(email, dni, role);
+    setIsLoading(false);
+
+    if (registerError) {
+        if (registerError.includes("already registered")) {
+            setError("Este correo ya está registrado.");
+        } else {
+            setError(registerError);
+        }
+    } else if (user) {
+        onRegister(user);
+    }
   };
 
   return (
@@ -113,18 +83,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
                 </div>
 
                 <div className="space-y-3">
-                    <button onClick={handleStartLogin} className="w-full group bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 px-6 rounded-2xl flex items-center justify-between transition-all transform active:scale-95 shadow-xl shadow-indigo-900/40">
+                    <button onClick={() => { setStep('EMAIL'); setError(''); setEmail(''); }} className="w-full group bg-indigo-600 hover:bg-indigo-500 text-white font-black py-5 px-6 rounded-2xl flex items-center justify-between transition-all transform active:scale-95 shadow-xl shadow-indigo-900/40">
                         <div className="flex items-center gap-3">
                             <LogIn size={20} />
-                            <span className="text-sm uppercase tracking-widest">Acceso con Email</span>
+                            <span className="text-sm uppercase tracking-widest">Iniciar Sesión</span>
                         </div>
                         <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                     </button>
 
-                    <button onClick={handleGmailLogin} className="w-full bg-white hover:bg-slate-100 text-slate-900 font-black py-5 px-6 rounded-2xl flex items-center justify-between transition-all transform active:scale-95 border border-slate-200">
+                    <button onClick={() => { setStep('REGISTER'); setError(''); setEmail(''); }} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-black py-5 px-6 rounded-2xl flex items-center justify-between transition-all transform active:scale-95 border border-slate-700">
                         <div className="flex items-center gap-3">
-                            <Mail size={20} className="text-red-500" />
-                            <span className="text-sm uppercase tracking-widest">Continuar con Gmail</span>
+                            <UserPlus size={20} className="text-indigo-400" />
+                            <span className="text-sm uppercase tracking-widest">Crear Cuenta</span>
                         </div>
                     </button>
 
@@ -144,23 +114,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
                             <span className="text-[10px] font-black uppercase">Demo Staff</span>
                         </button>
                     </div>
-                    <p className="text-[9px] text-slate-600 text-center font-medium italic mt-4">* El modo demo elimina toda la actividad al cerrar la sesión.</p>
                 </div>
             </div>
         )}
 
-        {step === 'GOOGLE_EMAIL' && (
+        {step === 'EMAIL' && (
             <div className="w-full max-w-md bg-white border border-slate-200 rounded-[2.5rem] shadow-2xl p-10 text-slate-900">
                 <div className="text-center mb-10">
-                    <h2 className="text-2xl font-black tracking-tighter">Acceso Directo</h2>
-                    <p className="text-xs text-slate-500 mt-1">Ingresa tu correo para validar tu perfil</p>
+                    <h2 className="text-2xl font-black tracking-tighter uppercase">Identifícate</h2>
+                    <p className="text-xs text-slate-500 mt-1">Ingresa tu correo asociado</p>
                 </div>
-                <form onSubmit={handleEmailSubmit} className="space-y-6">
-                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" placeholder="ej: pablo@gmail.com" autoFocus />
-                    {error && <p className="text-red-600 text-[10px] font-black uppercase flex items-center gap-2 font-bold"><ShieldAlert size={14} /> {error}</p>}
-                    <div className="flex justify-between items-center">
-                        <button type="button" onClick={() => setStep('INIT')} className="text-slate-400 font-black text-[10px] uppercase">Cancelar</button>
-                        <button type="submit" className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-lg shadow-indigo-200">Siguiente</button>
+                <form onSubmit={(e) => { e.preventDefault(); setStep('PASSWORD'); }} className="space-y-6">
+                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" placeholder="ej: astrónomo@oro-verde.com" autoFocus />
+                    <div className="flex justify-between items-center pt-2">
+                        <button type="button" onClick={() => setStep('INIT')} className="text-slate-400 font-black text-[10px] uppercase hover:text-slate-600 transition-colors">Atrás</button>
+                        <button type="submit" disabled={!email} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-lg shadow-indigo-200 disabled:opacity-50 transition-all">Siguiente</button>
                     </div>
                 </form>
             </div>
@@ -183,9 +151,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
                         </button>
                     </div>
                     {error && <p className="text-red-600 text-[10px] font-black uppercase flex items-center gap-2 font-bold"><ShieldAlert size={14} /> {error}</p>}
-                    <div className="flex justify-between items-center">
-                        <button type="button" onClick={() => setStep('GOOGLE_EMAIL')} className="text-slate-400 font-black text-[10px] uppercase">Atrás</button>
-                        <button type="submit" className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-lg">Entrar</button>
+                    <div className="flex justify-between items-center pt-2">
+                        <button type="button" onClick={() => setStep('EMAIL')} className="text-slate-400 font-black text-[10px] uppercase hover:text-slate-600 transition-colors">Atrás</button>
+                        <button type="submit" disabled={isLoading} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-lg disabled:opacity-50 flex items-center gap-2 transition-all">
+                            {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Entrar'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -194,15 +164,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
         {step === 'REGISTER' && (
             <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-[3rem] p-10 text-white shadow-2xl">
                 <div className="mb-8">
-                    <h2 className="text-3xl font-black tracking-tighter italic">Completar Perfil</h2>
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Usuario: {email}</p>
+                    <h2 className="text-3xl font-black tracking-tighter italic">Solicitud Alta</h2>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Completa tus datos reales</p>
                 </div>
-                <form onSubmit={handleRegisterSubmit} className="space-y-6">
+                <form onSubmit={handleRegisterSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">DNI Requerido (Sin puntos)</label>
-                        <input type="text" value={dni} onChange={(e) => setDni(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: 26809562" autoFocus />
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Correo de Contacto</label>
+                        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: pablo@aea.org" autoFocus />
                     </div>
                     <div>
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">DNI Requerido (Sin puntos)</label>
+                        <input type="text" required value={dni} onChange={(e) => setDni(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: 26809562" />
+                    </div>
+                    <div className="pt-2">
                         <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Rol Institucional</label>
                         <div className="grid grid-cols-1 gap-2">
                             {(['RESEARCHER', 'STAFF'] as const).map((r) => (
@@ -212,10 +186,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
                             ))}
                         </div>
                     </div>
-                    {error && <p className="text-red-400 text-[10px] font-black uppercase flex items-center gap-2"><ShieldAlert size={14} /> {error}</p>}
-                    <div className="flex gap-4 pt-4">
+                    {error && <p className="text-red-400 text-[10px] font-black uppercase flex items-center gap-2 pt-2"><ShieldAlert size={14} /> {error}</p>}
+                    <div className="flex gap-4 pt-6">
                         <button type="button" onClick={() => setStep('INIT')} className="flex-1 text-[10px] font-black uppercase text-slate-500 hover:text-white transition-colors">Atrás</button>
-                        <button type="submit" className="flex-1 bg-indigo-600 py-4 rounded-xl font-black text-xs uppercase shadow-xl hover:bg-indigo-500 transition-all">Solicitar Alta</button>
+                        <button type="submit" disabled={isLoading} className="flex-[2] bg-indigo-600 py-4 rounded-xl font-black text-xs uppercase shadow-xl hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                            {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Solicitar Alta'}
+                        </button>
                     </div>
                 </form>
             </div>

@@ -1,4 +1,3 @@
-
 {
   "name": "observatorio-oro-verde-app",
   "private": true,
@@ -11,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "latest",
+    "@supabase/supabase-js": "^2.100.1",
     "lucide-react": "^0.460.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

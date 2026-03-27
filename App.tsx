@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User } from './types';
 import { Login } from './components/Login';
@@ -10,9 +9,8 @@ import { Incidents } from './components/Incidents';
 import { AdminPanel } from './components/AdminPanel';
 import { Planner } from './components/Planner';
 import { Loader2, Lock, AlertCircle } from 'lucide-react';
-
-const SUPER_ADMIN_EMAIL = "soterapablo@gmail.com"; 
-const SUPER_ADMIN_DNI = "26809562";
+import { authService } from './services/authService';
+import { supabase } from './services/supabaseClient';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -21,83 +19,74 @@ const App: React.FC = () => {
   const [usersDb, setUsersDb] = useState<User[]>([]);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
-  useEffect(() => {
-    // 1. Cargar Base de Datos Real
-    const storedDb = localStorage.getItem('users_db');
-    let currentDb: User[] = storedDb ? JSON.parse(storedDb) : [];
-
-    // 2. Asegurar existencia del Super Admin Real con las credenciales solicitadas
-    const adminExists = currentDb.find(u => u.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase());
-    if (!adminExists) {
-        const superAdmin: User = {
-            id: 'super-admin-master',
-            name: 'Pablo Sotera',
-            email: SUPER_ADMIN_EMAIL,
-            dni: SUPER_ADMIN_DNI,
-            password: SUPER_ADMIN_DNI, // Password inicial solicitado
-            role: 'ADMIN',
-            status: 'APPROVED',
-            photoUrl: `https://ui-avatars.com/api/?name=Pablo+Sotera&background=4F46E5&color=fff`
-        };
-        currentDb.push(superAdmin);
-        localStorage.setItem('users_db', JSON.stringify(currentDb));
-    }
-    setUsersDb(currentDb);
-
-    // 3. Verificar Sesión Activa
-    const savedSession = localStorage.getItem('user_session');
-    const demoFlag = sessionStorage.getItem('is_demo_active');
-    
-    if (savedSession) {
-        const parsedUser = JSON.parse(savedSession);
-        if (demoFlag === 'true') {
-            setUser(parsedUser);
-            setIsDemoMode(true);
-        } else {
-            const freshUser = currentDb.find(u => u.id === parsedUser.id);
-            if (freshUser) {
-                setUser(freshUser);
-            } else {
-                localStorage.removeItem('user_session');
-            }
-        }
-    }
-    setIsLoading(false);
-  }, []);
-
-  const saveDb = (newDb: User[]) => {
-      setUsersDb(newDb);
-      localStorage.setItem('users_db', JSON.stringify(newDb));
+  const fetchUsersDb = async () => {
+      const { data } = await supabase.from('profiles').select('*');
+      if (data) {
+          const formatted = data.map((d: any) => ({
+              id: d.id,
+              email: d.email,
+              name: d.name,
+              dni: d.dni,
+              role: d.role,
+              status: d.status,
+              photoUrl: d.photo_url
+          }));
+          setUsersDb(formatted);
+      }
   };
 
-  const handleRegister = (newUser: User) => {
-    // Registro Real
-    const updatedDb = [...usersDb, newUser];
-    saveDb(updatedDb);
+  useEffect(() => {
+    const initAuth = async () => {
+      const demoFlag = sessionStorage.getItem('is_demo_active');
+      if (demoFlag === 'true') {
+          const savedSession = localStorage.getItem('user_session');
+          if (savedSession) {
+              setUser(JSON.parse(savedSession));
+              setIsDemoMode(true);
+          }
+          setIsLoading(false);
+          return;
+      }
+      
+      const { user } = await authService.checkSession();
+      if (user) {
+          setUser(user);
+          if (user.role === 'ADMIN') {
+              await fetchUsersDb();
+          }
+      }
+      setIsLoading(false);
+    };
+    initAuth();
+  }, []);
+
+  const handleRegister = async (newUser: User) => {
     setUser(newUser);
-    localStorage.setItem('user_session', JSON.stringify(newUser));
-    sessionStorage.setItem('is_demo_active', 'false');
     setIsDemoMode(false);
   };
 
-  const handleLogin = (foundUser: User, isDemo: boolean = false) => {
+  const handleLogin = async (foundUser: User, isDemo: boolean = false) => {
     setUser(foundUser);
     setIsDemoMode(isDemo);
-    localStorage.setItem('user_session', JSON.stringify(foundUser));
     if (isDemo) {
         sessionStorage.setItem('is_demo_active', 'true');
+        localStorage.setItem('user_session', JSON.stringify(foundUser));
     } else {
-        sessionStorage.setItem('is_demo_active', 'false');
+        sessionStorage.removeItem('is_demo_active');
+        if (foundUser.role === 'ADMIN') {
+            await fetchUsersDb();
+        }
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (isDemoMode) {
-        // Limpieza de datos volátiles de la demo
         localStorage.removeItem('facility_requests');
         localStorage.removeItem('global_attendance_log');
         localStorage.removeItem('institutional_projects');
         sessionStorage.removeItem('is_demo_active');
+    } else {
+        await authService.logout();
     }
     setUser(null);
     setIsDemoMode(false);
@@ -107,18 +96,23 @@ const App: React.FC = () => {
 
   const handleUpdatePassword = async (newPassword: string): Promise<boolean> => {
     if (!user || isDemoMode) return false;
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+        console.error(error);
+        return false;
+    }
     const updatedUser = { ...user, password: newPassword };
-    const updatedDb = usersDb.map(u => u.id === user.id ? updatedUser : u);
-    saveDb(updatedDb);
     setUser(updatedUser);
-    localStorage.setItem('user_session', JSON.stringify(updatedUser));
     return true;
   };
 
-  const handleUpdateUserStatus = (userId: string, status: 'APPROVED' | 'REJECTED') => {
+  const handleUpdateUserStatus = async (userId: string, status: 'APPROVED' | 'REJECTED') => {
       if (isDemoMode) return;
-      const updatedDb = usersDb.map(u => u.id === userId ? { ...u, status } : u);
-      saveDb(updatedDb);
+      const { error } = await supabase.from('profiles').update({ status }).eq('id', userId);
+      if (!error) {
+         setUsersDb(prev => prev.map(u => u.id === userId ? { ...u, status } : u));
+         if (user && user.id === userId) setUser({ ...user, status });
+      }
   };
 
   if (isLoading) {
