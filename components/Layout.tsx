@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
-import { LogOut, Telescope, AlertTriangle, ClipboardCheck, LayoutDashboard, ShieldCheck, Sparkles, Moon, Star } from 'lucide-react';
+import { LogOut, Telescope, AlertTriangle, ClipboardCheck, LayoutDashboard, ShieldCheck, Sparkles, Moon, Star, Rocket, CalendarDays } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,9 +28,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, set
 
   const navItems = [
     { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
+    { id: 'agenda', label: 'Mi Agenda', icon: CalendarDays },
     { id: 'attendance', label: 'Asistencia', icon: ClipboardCheck },
-    { id: 'requests', label: 'Actividades', icon: Telescope },
+    { id: 'requests', label: 'Programar Actividades', icon: Telescope },
     { id: 'planner', label: 'Planner', icon: Star },
+    { id: 'projects', label: 'Proyectos', icon: Rocket },
     { id: 'incidents', label: 'Novedades', icon: AlertTriangle },
   ];
 

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { getCurrentPosition, checkIsOnSite } from '../services/geoService';
 import { AttendanceRecord, UserRole } from '../types';
+import { supabase } from '../services/supabaseClient';
 import { MapPin, CheckCircle2, XCircle, RefreshCw, Loader2, Clock, ArrowRightLeft, Download, FileText, Table, Smartphone } from 'lucide-react';
 
 export const Attendance: React.FC<{ userId: string; userDni: string; userRole: UserRole }> = ({ userId, userDni, userRole }) => {
@@ -11,11 +12,24 @@ export const Attendance: React.FC<{ userId: string; userDni: string; userRole: U
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('global_attendance_log');
-    if (saved) {
-      const allRecords: AttendanceRecord[] = JSON.parse(saved);
-      setRecords(allRecords.filter(r => r.userId === userId));
-    }
+    const fetchRecords = async () => {
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false });
+
+      if (data && !error) {
+        setRecords(data.map((r: any) => ({
+          id: r.id,
+          userId: r.user_id,
+          timestamp: r.timestamp,
+          type: r.type,
+          location: { lat: r.lat, lng: r.lng }
+        })));
+      }
+    };
+    fetchRecords();
   }, [userId]);
 
   const downloadExcel = () => {
@@ -49,25 +63,39 @@ export const Attendance: React.FC<{ userId: string; userDni: string; userRole: U
     setMessage(`Activando GPS para validación puntual...`);
 
     try {
-      // getCurrentPosition es una solicitud única, no continua.
       const position = await getCurrentPosition();
       const { latitude, longitude } = position.coords;
 
       const isOnSite = checkIsOnSite(latitude, longitude);
       
       if (isOnSite) {
+        const now = Date.now();
+
+        const { data: inserted, error } = await supabase
+          .from('attendance_records')
+          .insert([{
+            user_id: userId,
+            timestamp: now,
+            type: type,
+            lat: latitude,
+            lng: longitude
+          }])
+          .select()
+          .single();
+
+        if (error) {
+          setStatus('ERROR');
+          setMessage('Error al guardar en la base de datos: ' + error.message);
+          return;
+        }
+
         const newRecord: AttendanceRecord = {
-          id: crypto.randomUUID(),
+          id: inserted.id,
           userId,
-          timestamp: Date.now(),
+          timestamp: now,
           type: type,
           location: { lat: latitude, lng: longitude }
         };
-
-        const saved = localStorage.getItem('global_attendance_log');
-        const allRecords = saved ? JSON.parse(saved) : [];
-        const updatedGlobal = [newRecord, ...allRecords];
-        localStorage.setItem('global_attendance_log', JSON.stringify(updatedGlobal));
         
         setRecords([newRecord, ...records]);
         setStatus('SUCCESS');

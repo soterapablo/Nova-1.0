@@ -15,14 +15,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [dni, setDni] = useState('');
-  const [role, setRole] = useState<UserRole>('STAFF');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [medicalNotes, setMedicalNotes] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleDemoLogin = (type: 'ADMIN' | 'STAFF') => {
+  const handleDemoLogin = (type: 'ADMIN' | 'SOCIO') => {
     const demoUser: User = {
         id: `demo-${type.toLowerCase()}-${Date.now()}`,
-        name: type === 'ADMIN' ? 'Administrador de Pruebas' : 'Personal de Pruebas',
+        name: type === 'ADMIN' ? 'Administrador de Pruebas' : 'Socio de Pruebas',
         email: `demo-${type.toLowerCase()}@test.com`,
         dni: '00000000',
         role: type,
@@ -53,10 +57,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!dni.trim()) { setError("El DNI es obligatorio."); return; }
+    if (!name.trim()) { setError("El nombre completo es obligatorio."); return; }
     
     setIsLoading(true);
     setError('');
-    const { user, error: registerError } = await authService.register(email, dni, role);
+    const { user, error: registerError } = await authService.register({
+        email, 
+        dni, 
+        name,
+        phone,
+        emergencyPhone,
+        birthDate,
+        medicalNotes
+    });
     setIsLoading(false);
 
     if (registerError) {
@@ -109,9 +122,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
                             <ShieldCheck size={20} />
                             <span className="text-[10px] font-black uppercase">Demo Admin</span>
                         </button>
-                        <button onClick={() => handleDemoLogin('STAFF')} className="bg-slate-800/50 hover:bg-slate-800 border border-slate-700 p-4 rounded-2xl text-slate-400 transition-all flex flex-col items-center gap-1">
+                        <button onClick={() => handleDemoLogin('SOCIO' as any)} className="bg-slate-800/50 hover:bg-slate-800 border border-slate-700 p-4 rounded-2xl text-slate-400 transition-all flex flex-col items-center gap-1">
                             <UserIcon size={20} />
-                            <span className="text-[10px] font-black uppercase">Demo Staff</span>
+                            <span className="text-[10px] font-black uppercase">Demo Socio</span>
                         </button>
                     </div>
                 </div>
@@ -125,7 +138,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
                     <p className="text-xs text-slate-500 mt-1">Ingresa tu correo asociado</p>
                 </div>
                 <form onSubmit={(e) => { e.preventDefault(); setStep('PASSWORD'); }} className="space-y-6">
-                    <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" placeholder="ej: astrónomo@oro-verde.com" autoFocus />
+                    <div className="space-y-1">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-1">Correo Electrónico</label>
+                        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 focus:ring-2 focus:ring-indigo-500 outline-none font-bold" placeholder="ej: astrónomo@oro-verde.com" autoFocus />
+                    </div>
                     <div className="flex justify-between items-center pt-2">
                         <button type="button" onClick={() => setStep('INIT')} className="text-slate-400 font-black text-[10px] uppercase hover:text-slate-600 transition-colors">Atrás</button>
                         <button type="submit" disabled={!email} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-lg shadow-indigo-200 disabled:opacity-50 transition-all">Siguiente</button>
@@ -162,31 +178,60 @@ export const Login: React.FC<LoginProps> = ({ onLogin, usersDb, onRegister }) =>
         )}
 
         {step === 'REGISTER' && (
-            <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-[3rem] p-10 text-white shadow-2xl">
+            <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-[3rem] p-10 text-white shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="mb-8">
-                    <h2 className="text-3xl font-black tracking-tighter italic">Solicitud Alta</h2>
-                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Completa tus datos reales</p>
+                    <h2 className="text-3xl font-black tracking-tighter italic">Solicitud de Alta</h2>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Completa tus datos para asociarte al sistema Nova</p>
                 </div>
-                <form onSubmit={handleRegisterSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Correo de Contacto</label>
-                        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: pablo@aea.org" autoFocus />
+                <form onSubmit={handleRegisterSubmit} className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">Nombre y Apellido Completos</label>
+                            <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Ej: Juan Pérez" />
+                        </div>
+                        
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">Correo Electrónico</label>
+                            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="ej: juan@email.com" />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">DNI (Sin puntos)</label>
+                            <input type="text" required value={dni} onChange={(e) => setDni(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Ej: 32456789" />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">Teléfono Celular</label>
+                            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="+54 343 ..." />
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">Contacto de Emergencia</label>
+                            <input type="tel" value={emergencyPhone} onChange={(e) => setEmergencyPhone(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all" placeholder="Nombre - Teléfono" />
+                        </div>
+
+                        <div className="md:col-span-2">
+                             <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">Fecha de Nacimiento</label>
+                             <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all [color-scheme:dark]" />
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest ml-1">Observaciones Médicas / Alergias</label>
+                            <textarea value={medicalNotes} onChange={(e) => setMedicalNotes(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all" rows={2} placeholder="Opcional: Informe si padece alguna condición crítica..." />
+                        </div>
+
                     </div>
-                    <div>
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">DNI Requerido (Sin puntos)</label>
-                        <input type="text" required value={dni} onChange={(e) => setDni(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 font-bold outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ej: 26809562" />
-                    </div>
-                    <div className="pt-2">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-2 tracking-widest">Rol Institucional</label>
-                        <div className="grid grid-cols-1 gap-2">
-                            {(['RESEARCHER', 'STAFF'] as const).map((r) => (
-                                <button key={r} type="button" onClick={() => setRole(r)} className={`text-xs py-4 px-4 rounded-xl border font-black uppercase tracking-widest transition-all ${role === r ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg shadow-indigo-900/40' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}>
-                                    {r === 'RESEARCHER' ? 'Astrónomo / Investigador' : 'Personal / Técnico'}
-                                </button>
-                            ))}
+
+                    <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-2xl flex items-start gap-4 mb-4">
+                        <AlertCircle size={20} className="text-indigo-400 shrink-0 mt-1" />
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Información de Seguridad</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Al solicitar el alta, tu contraseña provisional será tu número de **DNI**. Deberás cambiarla al ingresar por primera vez.</p>
                         </div>
                     </div>
+
                     {error && <p className="text-red-400 text-[10px] font-black uppercase flex items-center gap-2 pt-2"><ShieldAlert size={14} /> {error}</p>}
+                    
                     <div className="flex gap-4 pt-6">
                         <button type="button" onClick={() => setStep('INIT')} className="flex-1 text-[10px] font-black uppercase text-slate-500 hover:text-white transition-colors">Atrás</button>
                         <button type="submit" disabled={isLoading} className="flex-[2] bg-indigo-600 py-4 rounded-xl font-black text-xs uppercase shadow-xl hover:bg-indigo-500 transition-all flex items-center justify-center gap-2 disabled:opacity-50">

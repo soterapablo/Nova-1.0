@@ -1,5 +1,5 @@
 
-export type UserRole = 'RESEARCHER' | 'STAFF' | 'ADMIN';
+export type UserRole = 'SOCIO' | 'ADMIN';
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface User {
@@ -11,6 +11,11 @@ export interface User {
   role: UserRole;
   status: UserStatus;
   photoUrl?: string;
+  phone?: string;
+  emergencyPhone?: string;
+  birthDate?: string;
+  medicalNotes?: string;
+  mustChangePassword?: boolean;
 }
 
 export interface AttendanceRecord {
@@ -62,7 +67,10 @@ export interface Project {
 export interface IncidentReport {
   id: string;
   userId: string;
+  title?: string;
   description: string;
+  status?: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
+  severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   timestamp: number;
   aiAnalysis?: {
     severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';

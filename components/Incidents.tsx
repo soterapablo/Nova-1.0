@@ -1,12 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { IncidentReport } from '../types';
 import { analyzeIncident } from '../services/geminiService';
+import { supabase } from '../services/supabaseClient';
 import { AlertTriangle, Send, Sparkles, Activity } from 'lucide-react';
 
 export const Incidents: React.FC<{ userId: string }> = ({ userId }) => {
   const [description, setDescription] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [reports, setReports] = useState<IncidentReport[]>([]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      const { data, error } = await supabase
+        .from('incident_reports')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (data && !error) {
+        setReports(data.map((r: any) => ({
+          id: r.id,
+          userId: r.user_id,
+          description: r.description,
+          timestamp: r.timestamp,
+          aiAnalysis: r.ai_severity ? {
+            severity: r.ai_severity,
+            summary: r.ai_summary,
+            category: r.ai_category
+          } : undefined
+        })));
+      }
+    };
+    fetchReports();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,14 +40,34 @@ export const Incidents: React.FC<{ userId: string }> = ({ userId }) => {
     setAnalyzing(true);
     
     try {
-        // AI Analysis
         const analysis = await analyzeIncident(description);
+        const now = Date.now();
+
+        const { data: inserted, error } = await supabase
+          .from('incident_reports')
+          .insert([{
+            user_id: userId,
+            description,
+            title: description.substring(0, 40) + '...',
+            status: 'OPEN',
+            timestamp: now,
+            ai_severity: analysis?.severity || null,
+            ai_summary: analysis?.summary || null,
+            ai_category: analysis?.category || null
+          }])
+          .select()
+          .single();
+
+        if (error) {
+          console.error("Error saving incident:", error);
+          return;
+        }
         
         const newReport: IncidentReport = {
-            id: crypto.randomUUID(),
+            id: inserted.id,
             userId,
             description,
-            timestamp: Date.now(),
+            timestamp: now,
             aiAnalysis: analysis
         };
 
@@ -30,14 +75,26 @@ export const Incidents: React.FC<{ userId: string }> = ({ userId }) => {
         setDescription('');
     } catch (error) {
         console.error("Failed to analyze", error);
-        // Fallback save without analysis
+        const now = Date.now();
+
+        const { data: inserted } = await supabase
+          .from('incident_reports')
+          .insert([{
+            user_id: userId,
+            description,
+            timestamp: now
+          }])
+          .select()
+          .single();
+
         const newReport: IncidentReport = {
-            id: crypto.randomUUID(),
+            id: inserted?.id || crypto.randomUUID(),
             userId,
             description,
-            timestamp: Date.now()
+            timestamp: now
         };
         setReports([newReport, ...reports]);
+        setDescription('');
     } finally {
         setAnalyzing(false);
     }
@@ -134,7 +191,7 @@ export const Incidents: React.FC<{ userId: string }> = ({ userId }) => {
             
             {reports.length === 0 && (
                 <div className="text-center py-10 text-slate-600 border border-dashed border-slate-800 rounded-xl">
-                    <p>No hay novedades registradas hoy.</p>
+                    <p>No hay novedades registradas.</p>
                 </div>
             )}
         </div>

@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { FacilityType, FacilityRequest } from '../types';
+import { supabase } from '../services/supabaseClient';
 import { Calendar, Clock, Check, Star, CheckSquare, Square, Loader2 } from 'lucide-react';
 
 export const Requests: React.FC<{ userId: string }> = ({ userId }) => {
@@ -29,7 +30,7 @@ export const Requests: React.FC<{ userId: string }> = ({ userId }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedFacilities.length === 0) {
         alert("Por favor, selecciona al menos una instalación o actividad.");
@@ -38,32 +39,37 @@ export const Requests: React.FC<{ userId: string }> = ({ userId }) => {
 
     setSubmitted(true);
     
-    // Crear las nuevas solicitudes con estado 'PENDING'
-    const newRequests: FacilityRequest[] = selectedFacilities.map(f => ({
-        id: crypto.randomUUID(),
-        userId,
-        facility: f,
-        date,
-        timeStart: time,
-        durationHours: duration,
-        purpose,
-        status: 'PENDING' // Ahora requiere aprobación
-    }));
+    try {
+      const newRequests = selectedFacilities.map(f => ({
+          user_id: userId,
+          facility: f as string,
+          date,
+          time_start: time,
+          duration_hours: duration,
+          purpose,
+          status: 'PENDING'
+      }));
 
-    // Simulación de guardado en "base de datos" local
-    setTimeout(() => {
-        const storedRequests = localStorage.getItem('facility_requests');
-        const currentRequests = storedRequests ? JSON.parse(storedRequests) : [];
-        const updatedRequests = [...newRequests, ...currentRequests];
-        localStorage.setItem('facility_requests', JSON.stringify(updatedRequests));
+      const { error } = await supabase
+        .from('facility_requests')
+        .insert(newRequests);
 
-        setSubmitted(false);
-        setPurpose('');
-        setDate('');
-        setTime('');
-        setSelectedFacilities([]);
+      if (error) {
+        console.error('Error saving requests:', error);
+        alert('Error al guardar la solicitud: ' + error.message);
+      } else {
         alert(`¡Solicitud enviada! Un administrador deberá aprobarla antes de que aparezca confirmada en tu panel.`);
-    }, 1500);
+      }
+
+      setSubmitted(false);
+      setPurpose('');
+      setDate('');
+      setTime('');
+      setSelectedFacilities([]);
+    } catch (err) {
+      console.error(err);
+      setSubmitted(false);
+    }
   };
 
   return (
@@ -71,7 +77,7 @@ export const Requests: React.FC<{ userId: string }> = ({ userId }) => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white flex items-center">
             <Star className="mr-2 text-yellow-400" />
-            Solicitud para realizar actividades
+            Programar actividades
         </h2>
         <button 
             type="button"
@@ -119,8 +125,9 @@ export const Requests: React.FC<{ userId: string }> = ({ userId }) => {
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 pl-10 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    style={{ colorScheme: 'dark' }}
                 />
-                <Calendar size={18} className="absolute left-3 top-3.5 text-slate-400" />
+                <Calendar size={18} className="absolute left-3 top-3.5 text-indigo-400" />
             </div>
         </div>
 
@@ -133,8 +140,9 @@ export const Requests: React.FC<{ userId: string }> = ({ userId }) => {
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                     className="w-full bg-slate-800/50 border border-slate-600 rounded-xl px-4 py-3 pl-10 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    style={{ colorScheme: 'dark' }}
                 />
-                <Clock size={18} className="absolute left-3 top-3.5 text-slate-400" />
+                <Clock size={18} className="absolute left-3 top-3.5 text-indigo-400" />
             </div>
         </div>
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from './types';
+import { User, UserRole } from './types';
 import { Login } from './components/Login';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -8,6 +8,8 @@ import { Requests } from './components/Requests';
 import { Incidents } from './components/Incidents';
 import { AdminPanel } from './components/AdminPanel';
 import { Planner } from './components/Planner';
+import { Projects } from './components/Projects';
+import { Agenda } from './components/Agenda';
 import { Loader2, Lock, AlertCircle } from 'lucide-react';
 import { authService } from './services/authService';
 import { supabase } from './services/supabaseClient';
@@ -27,10 +29,15 @@ const App: React.FC = () => {
               email: d.email,
               name: d.name,
               dni: d.dni,
-              role: d.role,
-              status: d.status,
-              photoUrl: d.photo_url
-          }));
+               role: d.role,
+               status: d.status,
+               photoUrl: d.photo_url,
+               phone: d.phone,
+               emergencyPhone: d.emergency_phone,
+               birthDate: d.birth_date,
+               medicalNotes: d.medical_notes,
+               mustChangePassword: d.must_change_password
+           }));
           setUsersDb(formatted);
       }
   };
@@ -81,9 +88,6 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (isDemoMode) {
-        localStorage.removeItem('facility_requests');
-        localStorage.removeItem('global_attendance_log');
-        localStorage.removeItem('institutional_projects');
         sessionStorage.removeItem('is_demo_active');
     } else {
         await authService.logout();
@@ -101,18 +105,35 @@ const App: React.FC = () => {
         console.error(error);
         return false;
     }
-    const updatedUser = { ...user, password: newPassword };
+    
+    // Reset the nudge flag in the profile
+    await supabase.from('profiles').update({ must_change_password: false }).eq('id', user.id);
+    
+    const updatedUser: User = { ...user, password: newPassword, mustChangePassword: false };
     setUser(updatedUser);
     return true;
   };
 
-  const handleUpdateUserStatus = async (userId: string, status: 'APPROVED' | 'REJECTED') => {
-      if (isDemoMode) return;
-      const { error } = await supabase.from('profiles').update({ status }).eq('id', userId);
-      if (!error) {
-         setUsersDb(prev => prev.map(u => u.id === userId ? { ...u, status } : u));
-         if (user && user.id === userId) setUser({ ...user, status });
+  const handleUpdateUserStatus = async (userId: string, status: 'APPROVED' | 'REJECTED', role: UserRole = 'SOCIO') => {
+      if (isDemoMode) {
+          alert("Modo Demo: Los cambios no se guardan en la base de datos.");
+          return;
       }
+      
+      const updatePayload: any = { status };
+      if (status === 'APPROVED') {
+          updatePayload.role = role;
+      }
+      
+      const { error } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
+      if (error) {
+          console.error("Error al actualizar estado:", error);
+          alert("Error al actualizar el socio: " + error.message);
+          return;
+      }
+      
+      setUsersDb(prev => prev.map(u => u.id === userId ? { ...u, status, role: status === 'APPROVED' ? role : u.role } : u));
+      if (user && user.id === userId) setUser({ ...user, status, role: status === 'APPROVED' ? role : user.role });
   };
 
   if (isLoading) {
@@ -146,12 +167,14 @@ const App: React.FC = () => {
                     <AlertCircle size={14} /> Entorno de Pruebas Volátil - Los datos se borrarán al salir
                 </div>
             )}
-            {currentView === 'dashboard' && <Dashboard user={user} onUpdatePassword={handleUpdatePassword} />}
+            {currentView === 'dashboard' && <Dashboard user={user} onUpdatePassword={handleUpdatePassword} setView={setCurrentView} />}
+            {currentView === 'agenda' && <Agenda user={user} />}
             {currentView === 'attendance' && <Attendance userId={user.id} userDni={user.dni} userRole={user.role} />}
             {currentView === 'requests' && <Requests userId={user.id} />}
             {currentView === 'planner' && <Planner />}
+            {currentView === 'projects' && <Projects user={user} />}
             {currentView === 'incidents' && <Incidents userId={user.id} />}
-            {currentView === 'admin' && (user.role === 'ADMIN' ? <AdminPanel users={usersDb} onUpdateStatus={handleUpdateUserStatus} /> : <Dashboard user={user} onUpdatePassword={handleUpdatePassword} />)}
+            {currentView === 'admin' && (user.role === 'ADMIN' ? <AdminPanel users={usersDb} onUpdateStatus={handleUpdateUserStatus} refreshUsers={fetchUsersDb} /> : <Dashboard user={user} onUpdatePassword={handleUpdatePassword} setView={setCurrentView} />)}
         </>
     );
   };
